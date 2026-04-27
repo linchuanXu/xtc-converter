@@ -1,6 +1,6 @@
-# EPUB to XTC Converter & Optimizer
+# XTC Converter
 
-A tool for converting EPUB files to XTC/XTCH format and optimizing EPUBs for e-ink readers. Available as a browser-based web app and Node.js CLI.
+Convert EPUB, PDF, PPTX, MOBI, DOCX and Markdown to XTC/XTCH format for Xteink e-ink readers. Available as a browser-based web app and Node.js CLI.
 
 ## Features
 
@@ -264,10 +264,16 @@ The site will be available at `https://<username>.github.io/<repo-name>/`
 ## Credits
 
 - Codebase is primarily adapted from [bigbag/epub-to-xtc-converter](https://github.com/bigbag/epub-to-xtc-converter), with project-specific modifications.
-- CREngine from [CoolReader](https://github.com/nickvantassel/literata-font)
+- CREngine from [CoolReader](https://github.com/buggins/coolreader)
 - XTC format specification from [CrazyCoder's Gist](https://gist.github.com/CrazyCoder/b125f26d6987c0620058249f59f1327d)
 - Inspired by [x4converter.rho.sh](https://x4converter.rho.sh)
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file.
+This program is **free software** licensed under the **GNU General Public License v2.0 or later** — see [LICENSE](LICENSE).
+
+You may redistribute and modify it under those terms. The bundled **CREngine** engine ([CoolReader](https://github.com/buggins/coolreader)) is GPLv2; linking it requires the whole distributed work to be under the GPL. Some code traces to the MIT-licensed [bigbag/epub-to-xtc-converter](https://github.com/bigbag/epub-to-xtc-converter); the **combined program** you receive here is still under the GPL.
+
+See [NOTICE](NOTICE) for third-party components and upstream credits.
+
+**Note:** GPLv2 does **not** ban commercial use or competitors from using the code — they must comply with the GPL (e.g. provide corresponding source when they distribute binaries). If you need to restrict use further, you would need a **dual-license** or **proprietary** model instead of pure GPL (and you could not ship CREngine under a more restrictive license without replacing the engine).

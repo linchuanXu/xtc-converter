@@ -17,7 +17,7 @@
     "e-reader",
     "converter"
   ],
-  "license": "MIT",
+  "license": "GPL-2.0-or-later",
   "dependencies": {
     "commander": "^12.0.0",
     "jszip": "^3.10.1",

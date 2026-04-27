@@ -1,0 +1,52 @@
+XTC Converter — Third-party notices
+===================================
+
+OVERALL LICENSE
+---------------
+
+This project as a whole is distributed under the **GNU General Public
+License v2.0 or later (GPL-2.0-or-later)**. See the LICENSE file for the
+full text.
+
+Because this work links to and distributes CREngine (GPL-2.0), the
+combined program must be licensed under the GPL. Portions of the code
+were originally derived from MIT-licensed projects; those files may
+retain their original permissive notices where applicable, but the
+**distributed combined work** is under the GPL.
+
+-------------------------------------------------------------------------------
+
+THIRD-PARTY COMPONENTS
+----------------------
+
+CREngine (web/crengine.js, web/crengine.wasm; vendor/crengine-master)
+  Source:  https://github.com/buggins/coolreader (CoolReader / CREngine)
+  WASM build by fdkevin0 — vendored unmodified.
+  License: GNU General Public License v2.0 (GPL-2.0)
+
+LZ4 (web/vendor/lz4-bundle.js)
+  Source:  lz4js / related LZ4 JavaScript ports
+  License: MIT (verify in upstream if you redistribute standalone)
+
+JSZip (loaded from CDN in web/index.html)
+  Source:  https://stuk.github.io/jszip/
+  License: MIT
+
+PDF.js (loaded from CDN in web/index.html)
+  Source:  https://github.com/mozilla/pdf.js
+  License: Apache License 2.0
+
+-------------------------------------------------------------------------------
+
+UPSTREAM / INSPIRATION
+----------------------
+
+bigbag/epub-to-xtc-converter
+  https://github.com/bigbag/epub-to-xtc-converter
+  Original license: MIT (portions of this codebase trace to that project)
+
+XTC format specification — CrazyCoder
+  https://gist.github.com/CrazyCoder/b125f26d6987c0620058249f59f1327d
+
+x4converter.rho.sh
+  https://x4converter.rho.sh

@@ -15,7 +15,7 @@ var FONT_BASE = (function () {
     }
     return FONT_CDN_BASE || '/system/fonts/';
 })();
-// 新增字体直接使用 Google 官方仓库 raw 链接（无需上传阿里云）
+// Newer fonts load directly from Google Fonts official GitHub repository
 var G_FONTS_RAW = 'https://raw.githubusercontent.com/google/fonts/main/';
 var GOOGLE_FONTS = {
     'Literata': [
@@ -85,7 +85,7 @@ var GOOGLE_FONTS = {
     'Long Cang': [
         { url: FONT_BASE + 'LongCang-Regular.ttf', name: 'LongCang-Regular.ttf' }
     ],
-    // === 以下使用 Google 官方仓库链接，无需上传阿里云 ===
+    // === Fonts below load from Google Fonts official repository ===
     'Liu Jian Mao Cao': [
         { url: G_FONTS_RAW + 'ofl/liujianmaocao/LiuJianMaoCao-Regular.ttf', name: 'LiuJianMaoCao-Regular.ttf' }
     ],
