@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0d9488">
+    <meta name="format-detection" content="telephone=no">
+    <title>XT 书籍转换器</title>
+    <script>try{var l=localStorage.getItem('lang');console.log('[i18n] localStorage lang:',l);if(!l){var h=navigator.language||navigator.userLanguage;console.log('[i18n] browser lang:',h);l=h.startsWith('zh')?'zh':'en';console.log('[i18n] detected lang:',l);}document.documentElement.lang=l==='zh'?'zh-CN':'en';window.currentLang=l;console.log('[i18n] html lang set to:',document.documentElement.lang)}catch(e){console.error('[i18n] error:',e)}try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+    <!-- 资源版本由 package.json 的 resourceVersion 控制，构建时自动注入 ?v= -->
+    <link rel="stylesheet" href="style.css?v=13">
+</head>
+<body>
+    <!-- 导出进度遮罩：独立全屏覆盖，禁止操作 -->
+    <div class="export-progress-overlay progress-container" id="progressContainer" style="display: none;">
+        <div class="export-progress-card">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText" data-i18n="ready">Ready</div>
+        </div>
+    </div>
+    <!-- 初始加载遮罩 -->
+    <div class="init-loading-overlay" id="initLoadingOverlay">
+        <div class="init-loading-card">
+            <div class="init-loading-spinner"></div>
+            <div class="init-loading-text" id="initLoadingText"></div>
+            <div class="init-loading-bar-track">
+                <div class="init-loading-bar-fill" id="initLoadingBarFill"></div>
+            </div>
+        </div>
+    </div>
+    <script>document.getElementById('initLoadingText').textContent=window.currentLang==='zh'?'加载中…':'Loading…';</script>
+    <div class="app">
+        <!-- 顶栏：标题 + 语言 + 模式切换 -->
+        <header class="app-bar">
+            <div class="app-title-wrap">
+                <h1 class="app-title" data-i18n="appTitle">XT 书籍转换器</h1>
+                <span class="app-title-short" aria-hidden="true">XT</span>
+                <p class="app-subtitle"><span class="app-subtitle-long" data-i18n="appSubtitle">EPUB · PDF · MOBI · PPTX → XTC</span><span class="app-subtitle-short" data-i18n="appSubtitleShort">任意格式转 XTC</span></p>
+            </div>
+            <div class="header-right">
+                <div class="mode-switcher">
+                    <button type="button" class="mode-btn active" data-mode="simple" data-i18n="modeSimple">简洁</button>
+                    <button type="button" class="mode-btn" data-mode="expert" data-i18n="modeExpert">专家</button>
+                </div>
+                <button type="button" class="theme-toggle" id="themeToggle" title="切换主题" aria-label="切换主题">
+                    <span class="theme-icon theme-icon-light" aria-hidden="true">☀️</span>
+                    <span class="theme-icon theme-icon-dark" aria-hidden="true">🌙</span>
+                </button>
+                <button type="button" class="tech-info-btn" id="usageGuideBtn" data-i18n="usageGuideBtn">使用说明</button>
+                <button type="button" class="lang-toggle" data-lang="zh">中/EN</button>
+            </div>
+        </header>
+
+        <div class="app-body">
+            <!-- 左侧：文件 + 设置 -->
+            <aside class="panel panel-left">
+                <section class="block block-files">
+                    <div class="drop-zone" id="dropZone">
+                        <!-- <span class="drop-zone-icon">+</span> -->
+                        <span class="drop-zone-text" data-i18n="dropZoneText">点击或拖入文件</span>
+                        <div class="format-badges" aria-hidden="true">
+                            <span class="format-badge format-badge-epub" data-i18n="formatEpub">EPUB</span>
+                            <span class="format-badge format-badge-pdf" data-i18n="formatPdf">PDF</span>
+                            <span class="format-badge format-badge-mobi" data-i18n="formatMobi">MOBI</span>
+                            <span class="format-badge format-badge-txt" data-i18n="formatTxt">TXT</span>
+                            <span class="format-badge format-badge-md" data-i18n="formatMarkdown">Markdown</span>
+                            <span class="format-badge format-badge-doc" data-i18n="formatDocDocx">DOC/DOCX</span>
+                            <span class="format-badge format-badge-pptx" data-i18n="formatPptx">PPT/PPTX</span>
+                        </div>
+                    </div>
+                    <input type="file" id="fileInput" accept=".epub,.pdf,.mobi,.azw,.prc,.pdb,.txt,.md,.markdown,.doc,.docx,.docm,.pptx,.ppt">
+                    <div class="file-info" id="fileInfo" style="display: none;">
+                        <div class="file-details">
+                            <span class="file-name" id="fileName"></span>
+                            <span class="book-author" id="bookAuthor"></span>
+                        </div>
+                        <button type="button" class="btn btn-small" id="replaceFileBtn" data-i18n="replaceFile">Replace</button>
+                    </div>
+                    <!-- 专家模式 + 批量开关打开时显示 -->
+                    <div class="batch-mode-wrap expert-only" id="batchModeWrap">
+                        <label class="batch-toggle-label">
+                            <input type="checkbox" id="batchModeToggle" autocomplete="off">
+                            <span data-i18n="batchModeLabel">批量转换</span>
+                        </label>
+                    </div>
+                    <div class="file-list-wrap expert-only" id="fileListContainer" style="display: none;">
+                        <p class="file-list-count" id="fileListCount"></p>
+                        <div class="file-list-items" id="fileListItems"></div>
+                        <button type="button" class="btn btn-primary btn-export-all" id="exportAllBtn" style="display: none;" data-i18n="exportAll">Export All</button>
+                    </div>
+                </section>
+
+                <!-- 设备：X4 / X3 两个大按钮 -->
+                <section class="block block-device">
+                    <p class="block-section-label" data-i18n="device">设备</p>
+                    <div class="device-buttons" role="group" aria-label="Device preset">
+                        <button type="button" class="device-btn active" id="deviceBtnX4" data-device="xteink-x4">
+                            <span class="device-btn-name">Xteink X4</span>
+                            <span class="device-btn-res">480×800</span>
+                        </button>
+                        <button type="button" class="device-btn" id="deviceBtnX3" data-device="xteink-x3">
+                            <span class="device-btn-name">Xteink X3</span>
+                            <span class="device-btn-res">528×792</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- 方向：四个图标按钮 -->
+                <section class="block block-orientation">
+                    <p class="block-section-label" data-i18n="orientation">方向</p>
+                    <div class="orientation-buttons orientation-buttons-block" role="group" aria-label="Orientation">
+                        <button type="button" class="orientation-btn active" data-orientation="0" title="0°">
+                            <span class="orientation-icon-svg" aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="orientation-btn" data-orientation="90" title="90°">
+                            <span class="orientation-icon-svg" aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="orientation-btn" data-orientation="180" title="180°">
+                            <span class="orientation-icon-svg" aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="orientation-btn" data-orientation="270" title="270°">
+                            <span class="orientation-icon-svg" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- 画面：快刷/高清 + 漫画感/均衡/照片感 -->
+                <section class="block block-screen">
+                    <p class="block-section-label" data-i18n="screenBlockLabel">画面</p>
+                    <div class="quality-buttons" role="group" aria-label="Quality">
+                        <button type="button" class="quality-btn quality-btn-fast active" id="qualityBtnFast" data-quality="fast">
+                            <span class="quality-btn-desc" data-i18n="qualityFastBtn">快刷</span>
+                            <span class="quality-btn-hint" data-i18n="qualityFastHint">刷新速度更快</span>
+                            <span class="quality-btn-hint" data-i18n="quality1bitHint">锯齿感较强</span>
+                        </button>
+                        <button type="button" class="quality-btn quality-btn-hq" id="qualityBtnHq" data-quality="hq">
+                            <span class="quality-btn-desc" data-i18n="qualityHqBtn">高清</span>
+                            <span class="quality-btn-hint" data-i18n="qualityHqHint">画质更好</span>
+                            <span class="quality-btn-hint" data-i18n="quality2bitHint">刷新会闪屏</span>
+                        </button>
+                    </div>
+                    <div class="screen-preset-row" id="screenPresetRow">
+                        <button type="button" class="preset-btn image-preset-btn active" data-image-preset="lineart">
+                            <span class="preset-name" data-i18n="imagePresetLineartName">漫画感</span>
+                        </button>
+                        <button type="button" class="preset-btn image-preset-btn" data-image-preset="balanced">
+                            <span class="preset-name" data-i18n="imagePresetBalancedName">均衡</span>
+                        </button>
+                        <button type="button" class="preset-btn image-preset-btn" data-image-preset="photo">
+                            <span class="preset-name" data-i18n="imagePresetPhotoName">照片感</span>
+                        </button>
+                    </div>
+                    <select id="qualityMode" class="quality-mode-hidden" aria-hidden="true" tabindex="-1">
+                        <option value="fast">Fast</option>
+                        <option value="hq">HQ</option>
+                    </select>
+                </section>
+
+                <!-- 文字：字体下拉 + 小字/适中/大字 -->
+                <section class="block block-font">
+                    <p class="font-mode-hint" id="fontModeHint" aria-live="polite"></p>
+                    <hr class="font-mode-hint-sep" aria-hidden="true">
+                    <div class="control-group control-group-font-select">
+                        <select id="fontFamily">
+                            <optgroup data-i18n="customFontGroup" label="★ 自定义">
+                                <option value="custom" data-i18n="customFont">★ 自定义字体（上传 TTF/OTF）</option>
+                            </optgroup>
+                            <optgroup data-i18n="presetFontGroup" label="预设字体">
+                            <option value="Noto Sans SC" selected>Noto Sans SC（思源黑体） 中英</option>
+                            <option value="Noto Serif SC">Noto Serif SC（思源宋体） 中英</option>
+                            <option value="LXGW WenKai GB Screen">霞鹜文楷屏幕版 中英</option>
+                            <option value="MiSans">MiSans（小米） 中英</option>
+                            <option value="Alegreya Sans SC">Alegreya Sans SC 中英</option>
+                            <option value="Alegreya SC">Alegreya SC（衬线） 中英</option>
+                            <option value="Literata">Literata 英</option>
+                            <option value="Lora">Lora 英</option>
+                            <option value="Merriweather">Merriweather 英</option>
+                            <option value="Source Serif 4">Source Serif 4 英</option>
+                            <option value="Noto Serif">Noto Serif 英</option>
+                            <option value="Noto Sans">Noto Sans 英</option>
+                            <option value="Open Sans">Open Sans 英</option>
+                            <option value="Roboto">Roboto 英</option>
+                            <option value="EB Garamond">EB Garamond 英</option>
+                            <option value="Crimson Pro">Crimson Pro 英</option>
+                            <option value="ZCOOL XiaoWei">站酷小薇体 中</option>
+                            <option value="ZCOOL QingKe HuangYou">站酷庆科黄油体 中</option>
+                            <option value="ZCOOL KuaiLe">站酷快乐体 中</option>
+                            <option value="Ma Shan Zheng">马善政手写体 中</option>
+                            <option value="Long Cang">龙藏体 中</option>
+                            <option value="Liu Jian Mao Cao">刘建毛草 中</option>
+                            <option value="Zhi Mang Xing">志芒星 中</option>
+                            <option value="Noto Sans TC">Noto Sans TC（繁体黑体）</option>
+                            <option value="Noto Serif TC">Noto Serif TC（繁体宋体）</option>
+                            <option value="Noto Sans HK">Noto Sans HK（香港黑体）</option>
+                            <option value="Noto Serif HK">Noto Serif HK（香港宋体）</option>
+                            </optgroup>
+                            <optgroup label="全球语种">
+                            <option value="Noto Sans Arabic">Noto Sans Arabic（阿拉伯文）</option>
+                            <option value="Noto Sans Hebrew">Noto Sans Hebrew（希伯来文）</option>
+                            <option value="Noto Sans Thai">Noto Sans Thai（泰文）</option>
+                            <option value="Noto Sans Devanagari">Noto Sans Devanagari（天城文/印地语等）</option>
+                            <option value="Noto Sans KR">Noto Sans KR（韩文）</option>
+                            <option value="Noto Sans JP">Noto Sans JP（日文）</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="custom-font-file-wrap" id="customFontFileWrap" style="display: none;">
+                        <button type="button" class="btn btn-small" id="customFontSelectBtn" data-i18n="customFontSelectFile">选择字体文件</button>
+                    </div>
+                    <input type="file" id="customFontInput" accept=".ttf,.otf,font/ttf,font/otf">
+                    <div class="text-size-preset-row" id="textSizePresetRow">
+                        <button type="button" class="preset-btn text-preset-btn" data-preset="compact">
+                            <span class="preset-name" data-i18n="textSizeSmall">小字</span>
+                        </button>
+                        <button type="button" class="preset-btn text-preset-btn active" data-preset="comfort">
+                            <span class="preset-name" data-i18n="textSizeMedium">适中</span>
+                        </button>
+                        <button type="button" class="preset-btn text-preset-btn" data-preset="large">
+                            <span class="preset-name" data-i18n="textSizeLarge">大字</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- 背景图 -->
+                <section class="block block-bg-image">
+                    <p class="block-section-label" data-i18n="bgImage">背景图</p>
+                    <div class="bg-image-buttons">
+                        <div class="bg-image-row">
+                            <button type="button" class="bg-image-option-btn" id="bgImageDefaultBtn" data-i18n="bgImageDefaultVertical">官方竖版</button>
+                            <button type="button" class="bg-image-option-btn" id="bgImageDefaultLandscapeBtn" data-i18n="bgImageDefaultLandscape">官方横版</button>
+                        </div>
+                        <div class="bg-image-row">
+                            <button type="button" class="bg-image-upload-btn" id="bgImageBtn" data-i18n="bgImageUpload">+ 上传图片</button>
+                        </div>
+                    </div>
+                    <div class="bg-image-mode-row" id="bgImageModeRow" style="display:none;">
+                        <select id="bgImageMode">
+                            <option value="stretch" data-i18n="bgImageStretch">Stretch</option>
+                            <option value="tile" data-i18n="bgImageTile">Tile</option>
+                        </select>
+                        <button type="button" id="bgImageClearBtn" class="bg-image-clear-btn" data-i18n="bgImageClear">Clear</button>
+                    </div>
+                    <span id="bgImageName" style="display:none; font-size:12px; color:var(--text-muted); margin-top:2px;"></span>
+                    <div id="bgImageEffectsGroup" class="control-group expert-only" style="display:none; margin-top:8px;">
+                        <p class="hint" style="margin-bottom:6px;" data-i18n="bgImageEffectsHint">Adjust background image only; content uses the main Image settings.</p>
+                        <div class="control-group">
+                            <label><span data-i18n="bgBrightness">Bg brightness</span>: <span id="bgBrightnessValue">0</span></label>
+                            <div class="slider-row">
+                                <input type="range" id="bgBrightness" min="-100" max="100" value="0">
+                                <input type="number" id="bgBrightnessNum" min="-100" max="100" value="0">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label><span data-i18n="bgContrast">Bg contrast</span>: <span id="bgContrastValue">0</span></label>
+                            <div class="slider-row">
+                                <input type="range" id="bgContrast" min="-100" max="100" value="0">
+                                <input type="number" id="bgContrastNum" min="-100" max="100" value="0">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label data-i18n="bgDitherLabel">Bg dithering</label>
+                            <select id="bgDitherMode">
+                                <option value="none" data-i18n="ditherModeNone">No dither</option>
+                                <option value="full" selected data-i18n="ditherModeFull">Full page dither</option>
+                            </select>
+                        </div>
+                        <div class="control-group" id="bgDitherStrengthGroup" style="display:none;">
+                            <label><span data-i18n="ditherStrength">Strength</span>: <span id="bgDitherStrengthValue">50</span>%</label>
+                            <div class="slider-row">
+                                <input type="range" id="bgDitherStrength" min="0" max="100" value="50">
+                                <input type="number" id="bgDitherStrengthNum" min="0" max="100" value="50">
+                            </div>
+                        </div>
+                    </div>
+                    <input type="file" id="bgImageInput" accept="image/*" style="display:none;">
+                    <div class="checkbox-group expert-only" style="margin-top:8px;">
+                        <input type="checkbox" id="showCrHeader">
+                        <label for="showCrHeader" data-i18n="showCrHeader">Show native header (title/page)</label>
+                    </div>
+                </section>
+
+                <!-- 文字下划线 -->
+                <section class="block block-underline">
+                    <label class="underline-checkbox-label">
+                        <input type="checkbox" id="readingUnderlines" aria-describedby="readingUnderlinesHint">
+                        <span data-i18n="readingUnderlines">文字下划线</span>
+                    </label>
+                    <p id="readingUnderlinesHint" class="hint underline-hint" data-i18n="readingUnderlinesHint">为正文添加文字下方的下划线。</p>
+                    <div id="underlineOptionsGroup" class="underline-options-group" style="display:none;">
+                        <div class="control-group">
+                            <label data-i18n="underlineEffect">Effect</label>
+                            <div class="underline-effect-row">
+                                <select id="underlineEffect">
+                                    <option value="dashed_prominent">╌╌╌</option>
+                                    <option value="dashed_faded" data-i18n="underlineFadedDashed" selected>╌╌╌ (虚化)</option>
+                                    <option value="dashed_subtle">┄┄┄</option>
+                                    <option value="dashed_default">┄┄┄</option>
+                                    <option value="solid_prominent">═══</option>
+                                    <option value="solid_faded" data-i18n="underlineFadedSolid">——— (虚化)</option>
+                                    <option value="solid_subtle">–––</option>
+                                    <option value="solid_default">———</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label><span data-i18n="underlinePositionPx">Position offset</span>: <span id="underlinePositionValue">5</span> px</label>
+                            <div class="slider-row">
+                                <input type="range" id="underlinePositionPx" min="-10" max="16" value="5">
+                                <input type="number" id="underlinePositionPxNum" min="-10" max="16" value="5">
+                            </div>
+                            <p class="hint" style="margin-top:2px;" data-i18n="underlinePositionPxHint">Relative to baseline; negative = up, positive = down. Underlines span between left and right margins.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 注释掉选项卡
+                <div class="tabs" role="tablist">
+                    <button type="button" class="tab-btn active" data-tab="converter" data-i18n="tabConverter">Converter</button>
+                    <button type="button" class="tab-btn" data-tab="optimizer" data-i18n="tabOptimizer">Optimizer</button>
+                </div>
+                -->
+
+                <!-- Converter 设置（可折叠分组） -->
+                <div class="tab-panel active" id="converter-tab">
+                    <details class="section expert-only" id="textSettingsSection" open>
+                        <summary class="section-head" data-i18n="textSettings">Text</summary>
+                        <div class="section-body">
+                            <div id="expertSettings">
+                            <div class="control-group">
+                                <label><span data-i18n="fontSize">Font Size</span>: <span id="fontSizeValue">34</span>px</label>
+                                <div class="slider-row">
+                                    <input type="range" id="fontSize" min="12" max="48" value="34">
+                                    <input type="number" id="fontSizeNum" min="12" max="48" value="34">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label><span data-i18n="fontWeight">Weight</span>: <span id="fontWeightValue">400</span></label>
+                                <div class="slider-row">
+                                    <input type="range" id="fontWeight" min="100" max="900" step="100" value="400">
+                                    <input type="number" id="fontWeightNum" min="100" max="900" step="100" value="400">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label><span data-i18n="lineHeight">Line Height</span>: <span id="lineHeightValue">120</span>%</label>
+                                <div class="slider-row">
+                                    <input type="range" id="lineHeight" min="80" max="200" value="120">
+                                    <input type="number" id="lineHeightNum" min="80" max="200" value="120">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label><span data-i18n="margins">Margins</span>: <span id="marginValue">16</span>px</label>
+                                <div class="slider-row">
+                                    <input type="range" id="margin" min="-200" max="200" value="16">
+                                    <input type="number" id="marginNum" min="-200" max="200" value="16">
+                                </div>
+                            </div>
+                            <div class="control-group expert-only" id="marginsAdvancedGroup">
+                                <label data-i18n="marginsAdvanced">Per-side Margins</label>
+                                <div class="margins-grid">
+                                    <div class="margin-cell margin-top">
+                                        <span data-i18n="marginTop">Top</span>
+                                        <input type="number" id="marginTop" min="-200" max="200" value="16">
+                                    </div>
+                                    <div class="margin-cell margin-bottom">
+                                        <span data-i18n="marginBottom">Bottom</span>
+                                        <input type="number" id="marginBottom" min="-200" max="200" value="16">
+                                    </div>
+                                    <div class="margin-cell margin-left">
+                                        <span data-i18n="marginLeft">Left</span>
+                                        <input type="number" id="marginLeft" min="-200" max="200" value="16">
+                                    </div>
+                                    <div class="margin-cell margin-right">
+                                        <span data-i18n="marginRight">Right</span>
+                                        <input type="number" id="marginRight" min="-200" max="200" value="16">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label><span data-i18n="paraIndent">Indent</span>: <span id="paraIndentValue">1</span>em</label>
+                                <div class="slider-row">
+                                    <input type="range" id="paraIndent" min="0" max="4" step="0.5" value="1">
+                                    <input type="number" id="paraIndentNum" min="0" max="4" step="0.5" value="1">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label><span data-i18n="paraSpacing">Para Spacing</span>: <span id="paraSpacingValue">20</span>px</label>
+                                <div class="slider-row">
+                                    <input type="range" id="paraSpacing" min="0" max="32" value="20">
+                                    <input type="number" id="paraSpacingNum" min="0" max="32" value="20">
+                                </div>
+                                <label class="sub-label"><span data-i18n="paraSpacingMode">Mode</span>:
+                                    <select id="paraSpacingMode">
+                                        <option value="fixed" data-i18n="paraSpacingModeFixed">Fixed (px)</option>
+                                        <option value="double" selected data-i18n="paraSpacingModeDouble">Double line (1× line height)</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div class="control-group">
+                                <label data-i18n="textAlign">Alignment</label>
+                                <select id="textAlign">
+                                    <option value="justify" data-i18n="justify">Justify</option>
+                                    <option value="left" data-i18n="left">Left</option>
+                                    <option value="center" data-i18n="center">Center</option>
+                                    <option value="right" data-i18n="right">Right</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label data-i18n="hyphenation">Hyphenation</label>
+                                <select id="hyphenation">
+                                    <option value="0" data-i18n="hyphenNone">None</option>
+                                    <option value="1" data-i18n="hyphenAlgo">Algorithm</option>
+                                    <option value="2" selected data-i18n="hyphenDict">Dictionary</option>
+                                </select>
+                            </div>
+                            <div class="control-group" id="hyphenationLangGroup">
+                                <label data-i18n="hyphenationLang">Language</label>
+                                <select id="hyphenationLang">
+                                    <option value="auto" selected data-i18n="hyphenAuto">Auto</option>
+                                    <option value="en">English</option>
+                                    <option value="zh">Chinese</option>
+                                    <option value="de">German</option>
+                                    <option value="fr">French</option>
+                                    <option value="es">Spanish</option>
+                                    <option value="ru">Russian</option>
+                                    <option value="ja">Japanese</option>
+                                    <option value="ko">Korean</option>
+                                    <option value="pt">Portuguese</option>
+                                    <option value="pt-br">Portuguese (BR)</option>
+                                    <option value="it">Italian</option>
+                                    <option value="nl">Dutch</option>
+                                    <option value="pl">Polish</option>
+                                    <option value="tr">Turkish</option>
+                                    <option value="uk">Ukrainian</option>
+                                    <option value="el">Greek</option>
+                                    <option value="fi">Finnish</option>
+                                    <option value="sv">Swedish</option>
+                                    <option value="da">Danish</option>
+                                    <option value="no">Norwegian</option>
+                                    <option value="cs">Czech</option>
+                                    <option value="hu">Hungarian</option>
+                                    <option value="ro">Romanian</option>
+                                    <option value="sk">Slovak</option>
+                                    <option value="bg">Bulgarian</option>
+                                    <option value="hr">Croatian</option>
+                                    <option value="sr">Serbian</option>
+                                    <option value="sl">Slovenian</option>
+                                    <option value="et">Estonian</option>
+                                    <option value="lv">Latvian</option>
+                                    <option value="lt">Lithuanian</option>
+                                    <option value="ca">Catalan</option>
+                                    <option value="gl">Galician</option>
+                                    <option value="eu">Basque</option>
+                                    <option value="hy">Armenian</option>
+                                    <option value="ka">Georgian</option>
+                                    <option value="mk">Macedonian</option>
+                                    <option value="eo">Esperanto</option>
+                                    <option value="la">Latin</option>
+                                    <option value="ga">Irish</option>
+                                    <option value="is">Icelandic</option>
+                                    <option value="cy">Welsh</option>
+                                    <option value="oc">Occitan</option>
+                                </select>
+                            </div>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="section expert-only" id="deviceSection">
+                        <summary class="section-head" data-i18n="device">Device</summary>
+                        <div class="section-body">
+                            <div class="control-group">
+                                <label data-i18n="devicePreset">Device Preset</label>
+                                <select id="devicePreset">
+                                    <option value="xteink-x4">Xteink X4 (480×800)</option>
+                                    <option value="xteink-x3">Xteink X3 (528×792)</option>
+                                    <option value="custom" data-i18n="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div class="control-group" id="customDimensions" style="display: none;">
+                                <label data-i18n="customDimensions">Custom Dimensions</label>
+                                <div class="slider-row">
+                                    <input type="number" id="customWidth" value="480" min="100" max="2000" placeholder="W">
+                                    <span>×</span>
+                                    <input type="number" id="customHeight" value="800" min="100" max="2000" placeholder="H">
+                                </div>
+                            </div>
+                            <div class="control-group" id="landscapePagesGroup" style="display: none;">
+                                <label data-i18n="landscapePages">Landscape columns</label>
+                                <select id="landscapePages">
+                                    <option value="1" data-i18n="landscapePagesOne">1 column</option>
+                                    <option value="2" data-i18n="landscapePagesTwo">2 columns</option>
+                                </select>
+                            </div>
+                            <div class="control-group control-readonly">
+                                <label><span data-i18n="scale">Scale</span>: <span id="previewScaleValue">—</span> <span data-i18n="scaleAutoDesc">(auto)</span></label>
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- 专家模式才显示的设置 -->
+                    <details class="section expert-only" id="imageSettingsSection">
+                        <summary class="section-head" data-i18n="imageSettings">Image</summary>
+                        <div class="section-body">
+                            <div class="control-group">
+                                <label data-i18n="exportFormat">Export Format</label>
+                                <select id="exportFormat">
+                                    <option value="xtcz" selected data-i18n="exportFormatXtcz">XTCZ (LZ4)</option>
+                                    <option value="xtc" data-i18n="exportFormatXtc">XTC/XTCH</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label data-i18n="exportFilenamePrefix">导出文件名前缀</label>
+                                <input type="text" id="exportFilenamePrefix" placeholder="例如 [X3]" maxlength="64">
+                            </div>
+                            <div class="control-group">
+                                <label><span data-i18n="brightness">Brightness</span>: <span id="brightnessValue">0</span></label>
+                                <div class="slider-row">
+                                    <input type="range" id="brightness" min="-100" max="100" value="0">
+                                    <input type="number" id="brightnessNum" min="-100" max="100" value="0">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label><span data-i18n="contrast">Contrast</span>: <span id="contrastValue">0</span></label>
+                                <div class="slider-row">
+                                    <input type="range" id="contrast" min="-100" max="100" value="0">
+                                    <input type="number" id="contrastNum" min="-100" max="100" value="0">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label><span data-i18n="imageZoom">Image Zoom</span>: <span id="imageZoomValue">100</span>%</label>
+                                <div class="slider-row">
+                                    <input type="range" id="imageZoom" min="80" max="180" value="100">
+                                    <input type="number" id="imageZoomNum" min="80" max="180" value="100">
+                                </div>
+                            </div>
+                            <div id="ditherStrengthGroup">
+                                <div class="control-group">
+                                    <label><span data-i18n="ditherStrength">Strength</span>: <span id="ditherStrengthValue">20</span>%</label>
+                                    <div class="slider-row">
+                                        <input type="range" id="ditherStrength" min="0" max="100" value="20">
+                                        <input type="number" id="ditherStrengthNum" min="0" max="100" value="20">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label data-i18n="ditherModeLabel">Dithering</label>
+                                <select id="ditherMode">
+                                    <option value="none" data-i18n="ditherModeNone">No dither</option>
+                                    <option value="imageOnly" selected data-i18n="ditherModeImageOnly">Image-only (smart detect)</option>
+                                    <option value="full" data-i18n="ditherModeFull">Full page dither</option>
+                                </select>
+                                <p class="hint dither-mode-hint" id="ditherImageOnlyHint" style="display:none;" data-i18n="ditherImageOnlyHint">Detection may be inaccurate; pages with no image detected are not dithered.</p>
+                                <div class="control-group dither-mode-hint" id="imageDetectionSensitivityGroup" style="display:none;">
+                                    <label><span data-i18n="imageDetectionSensitivity">Detection sensitivity</span>: <span id="imageDetectionSensitivityValue">60</span></label>
+                                    <div class="slider-row">
+                                        <input type="range" id="imageDetectionSensitivity" min="0" max="100" value="60">
+                                        <input type="number" id="imageDetectionSensitivityNum" min="0" max="100" value="60">
+                                    </div>
+                                    <p class="hint" data-i18n="imageDetectionSensitivityHint">Higher = more area as image; lower = only clear differences.</p>
+                                </div>
+                            </div>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="enableNegative">
+                                <label for="enableNegative" data-i18n="negativeDarkMode">Negative (dark)</label>
+                            </div>
+                            <details class="subsection" id="imageRegionSettingsWrap">
+                                <summary class="subsection-head" data-i18n="imageRegionSettings">Image region (B&amp;W conversion)</summary>
+                                <div class="subsection-body">
+                                    <p class="hint" data-i18n="imageRegionHint">These apply only to detected image areas; text stays unchanged.</p>
+                                    <div class="control-group">
+                                        <label><span data-i18n="imageRegionBrightness">Brightness</span>: <span id="imageRegionBrightnessValue">0</span></label>
+                                        <div class="slider-row">
+                                            <input type="range" id="imageRegionBrightness" min="-100" max="100" value="0">
+                                            <input type="number" id="imageRegionBrightnessNum" min="-100" max="100" value="0">
+                                        </div>
+                                    </div>
+                                    <div class="control-group">
+                                        <label><span data-i18n="imageRegionContrast">Contrast</span>: <span id="imageRegionContrastValue">0</span></label>
+                                        <div class="slider-row">
+                                            <input type="range" id="imageRegionContrast" min="-100" max="100" value="0">
+                                            <input type="number" id="imageRegionContrastNum" min="-100" max="100" value="0">
+                                        </div>
+                                    </div>
+                                    <div class="control-group">
+                                        <label><span data-i18n="imageRegionDitherStrength">Dither strength</span>: <span id="imageRegionDitherStrengthValue">75</span>%</label>
+                                        <div class="slider-row">
+                                            <input type="range" id="imageRegionDitherStrength" min="0" max="100" value="75">
+                                            <input type="number" id="imageRegionDitherStrengthNum" min="0" max="100" value="75">
+                                        </div>
+                                    </div>
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="imageRegionNegative">
+                                        <label for="imageRegionNegative" data-i18n="imageRegionNegative">Negative (image area only)</label>
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+                    </details>
+
+                    <!-- 专家模式才显示的设置 -->
+                    <details class="section expert-only" id="progressBarSection">
+                        <summary class="section-head" data-i18n="progressBar">Progress Bar</summary>
+                        <div class="section-body">
+                            <div class="progress-bar-row">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="enableProgressBar">
+                                    <label for="enableProgressBar" data-i18n="enabled">On</label>
+                                </div>
+                                <select id="progressPosition">
+                                    <option value="bottom" data-i18n="bottom">Bottom</option>
+                                    <option value="top" data-i18n="top">Top</option>
+                                </select>
+                                <select id="progressBarTheme" title="Progress bar style">
+                                    <option value="1" data-i18n="progressBarTheme1">Theme 1 (line)</option>
+                                    <option value="2" data-i18n="progressBarTheme2">Theme 2 (bar)</option>
+                                </select>
+                            </div>
+                            <div id="progressSettings" style="display: none;">
+                                <label class="progress-line-label" data-i18n="progressLine">Line</label>
+                                <div class="checkbox-row">
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="showBookProgress" checked>
+                                        <label for="showBookProgress" data-i18n="book">Book</label>
+                                    </div>
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="showChapterMarks" checked>
+                                        <label for="showChapterMarks" data-i18n="chapterMarks">Chapters</label>
+                                    </div>
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="showChapterProgress">
+                                        <label for="showChapterProgress" data-i18n="chapter">Chapter</label>
+                                    </div>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="progressFullWidth">
+                                    <label for="progressFullWidth" data-i18n="fullWidth">Full width</label>
+                                </div>
+                                <div class="checkbox-row">
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="showPageXY" checked>
+                                        <label for="showPageXY" data-i18n="pageXY">Page X/Y</label>
+                                    </div>
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="showBookPercent" checked>
+                                        <label for="showBookPercent" data-i18n="bookPercent">Book %</label>
+                                    </div>
+                                </div>
+                                <div class="checkbox-row">
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="showChapterXY" checked>
+                                        <label for="showChapterXY" data-i18n="chapterXY">Ch. X/Y</label>
+                                    </div>
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="showChapterPercent">
+                                        <label for="showChapterPercent" data-i18n="chapterPercent">Ch. %</label>
+                                    </div>
+                                </div>
+                                <div class="control-group">
+                                    <label><span data-i18n="fontSize">Font</span>: <span id="statusFontSizeValue">14</span>px</label>
+                                    <div class="slider-row">
+                                        <input type="range" id="statusFontSize" min="8" max="24" value="14">
+                                        <input type="number" id="statusFontSizeNum" min="8" max="24" value="14">
+                                    </div>
+                                </div>
+                                <div class="control-group">
+                                    <label><span data-i18n="edgeMargin">Edge</span>: <span id="statusEdgeMarginValue">0</span>px</label>
+                                    <div class="slider-row">
+                                        <input type="range" id="statusEdgeMargin" min="0" max="24" value="0">
+                                        <input type="number" id="statusEdgeMarginNum" min="0" max="24" value="0">
+                                    </div>
+                                </div>
+                                <div class="control-group">
+                                    <label><span data-i18n="sideMargin">Side</span>: <span id="statusSideMarginValue">0</span>px</label>
+                                    <div class="slider-row">
+                                        <input type="range" id="statusSideMargin" min="0" max="24" value="0">
+                                        <input type="number" id="statusSideMarginNum" min="0" max="24" value="0">
+                                    </div>
+                                </div>
+                                <div class="control-group">
+                                    <label data-i18n="statusBarColor">Bar Color</label>
+                                    <select id="statusBarColor">
+                                        <option value="black" data-i18n="colorBlack">Black</option>
+                                        <option value="dark" data-i18n="colorDark">Dark Gray</option>
+                                        <option value="mid" data-i18n="colorMid">Mid Gray</option>
+                                        <option value="light" data-i18n="colorLight">Light Gray</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="section" open>
+                        <summary class="section-head" data-i18n="chapters">Chapters</summary>
+                        <div class="section-body">
+                            <div class="chapter-list" id="chapterList"></div>
+                        </div>
+                    </details>
+
+                    <section class="block block-config">
+                        <p class="config-block-label" data-i18n="configBlockLabel">配置</p>
+                        <div class="config-buttons">
+                            <button type="button" class="btn btn-small" id="exportConfigBtn" data-i18n="exportConfig">导出配置</button>
+                            <button type="button" class="btn btn-small" id="importConfigBtn" data-i18n="importConfig">导入配置</button>
+                        </div>
+                        <input type="file" id="configFileInput" accept=".json" style="display: none;">
+                    </section>
+
+                    <section class="block block-config-footer" role="contentinfo">
+                        <p class="compliance-text compliance-text--sidebar" data-i18n="complianceDesc">仅处理你已合法获取并拥有必要授权的 EPUB、PDF 或 MOBI 内容。请遵守当地法律法规与平台规则。</p>
+                        <button type="button" class="tech-info-btn tech-info-btn--footer" id="techInfoBtn" data-i18n="techInfoBtn">技术说明</button>
+                    </section>
+                </div>
+
+                <!-- 注释掉 Optimizer 面板
+                <div class="tab-panel" id="optimizer-tab">
+                    <section class="block">
+                        <h2 class="section-head plain" data-i18n="optimizerTitle">EPUB Optimizer</h2>
+                        <p class="optimizer-desc" data-i18n="optimizerDesc">Optimize EPUBs for e-ink: remove problematic CSS, resize images.</p>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="optRemoveCss" checked>
+                            <label for="optRemoveCss" data-i18n="optRemoveCss">Remove bad CSS</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="optStripFonts" checked>
+                            <label for="optStripFonts" data-i18n="optStripFonts">Strip fonts</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="optGrayscale" checked>
+                            <label for="optGrayscale" data-i18n="optGrayscale">Grayscale images</label>
+                        </div>
+                        <div class="control-group">
+                            <label><span data-i18n="maxImageWidth">Max width</span>: <span id="maxImageWidthValue">480</span>px</label>
+                            <div class="slider-row">
+                                <input type="range" id="maxImageWidth" min="200" max="1200" value="480">
+                                <input type="number" id="maxImageWidthNum" min="200" max="1200" value="480">
+                            </div>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="optInjectCss" checked>
+                            <label for="optInjectCss" data-i18n="optInjectCss">Inject e-paper CSS</label>
+                        </div>
+                        <button type="button" id="optimizeBtn" class="btn btn-primary" data-i18n="optimizeEpubs">Optimize EPUBs</button>
+                    </section>
+                </div>
+                -->
+            </aside>
+
+            <!-- 右侧：预览 -->
+            <main class="panel panel-right">
+                <div class="preview-toolbar">
+                    <button type="button" id="settingsToggleBtn" class="btn settings-toggle-btn active" data-i18n="hideSettings">收起 ▲</button>
+                    <div class="toolbar-group">
+                        <button type="button" id="pageJumpOpenBtn" class="btn btn-small btn-icon-label" disabled data-i18n="pageJumpBtn">跳转</button>
+                        <button type="button" id="prevBtn" class="btn" disabled data-i18n="prev">Prev</button>
+                        <button type="button" id="refreshBtn" class="btn" data-i18n="refresh">Refresh</button>
+                        <button type="button" id="nextBtn" class="btn" disabled data-i18n="next">Next</button>
+                    </div>
+                    <span class="page-info" id="pageInfo" data-i18n="pageOf">Page 0 / 0</span>
+                    <div class="toolbar-group">
+                        <button type="button" id="exportPageBtn" class="btn" disabled data-i18n="exportPage">Export Page</button>
+                        <button type="button" id="exportBtn" class="btn btn-primary" disabled data-i18n="exportXTC">Export XTC</button>
+                    </div>
+                </div>
+                <div class="preview-area">
+                    <div class="device-skin-switch" id="deviceSkinSwitch" role="group" aria-label="设备边框颜色">
+                        <button type="button" class="device-skin-btn active" data-skin="black" aria-pressed="true">黑</button>
+                        <button type="button" class="device-skin-btn" data-skin="white" aria-pressed="false">白</button>
+                    </div>
+                    <div class="preview-canvas-wrap" id="previewCanvasWrap" data-rotate="0">
+                        <div class="device-frame" id="deviceFrame" data-skin="black" data-device="xteink-x4">
+                            <canvas id="previewCanvas" width="480" height="800"></canvas>
+                            <div class="device-chin-btns" aria-hidden="true">
+                                <span class="device-chin-btn"></span>
+                                <span class="device-chin-btn"></span>
+                            </div>
+                            <!-- X4：右侧 电源(上) + 音量键(中) -->
+                            <div class="device-frame-keys device-frame-keys-right" aria-hidden="true">
+                                <span class="device-key device-key-power"></span>
+                                <span class="device-key device-key-vol device-key-vol-1"></span>
+                                <span class="device-key device-key-vol device-key-vol-2"></span>
+                                <span class="device-key device-key-down-right"></span>
+                            </div>
+                            <!-- X3：顶部电源（仅 X3 显示） -->
+                            <div class="device-frame-keys device-frame-keys-top" aria-hidden="true">
+                                <span class="device-key device-key-power-top"></span>
+                            </div>
+                            <!-- X3：左侧 上键(左)、下键(右)，独立 class 避免与右侧/全局 .device-key 冲突 -->
+                            <div class="device-frame-keys device-frame-keys-left" aria-hidden="true">
+                                <span class="device-key-x3-left-up"></span>
+                                <span class="device-key-x3-left-down"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 空状态：无文件时显示 -->
+                    <div class="preview-empty" id="previewEmpty">
+                        <svg class="empty-book-icon" xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80" fill="none">
+                            <path d="M8 16C8 13.8 9.8 12 12 12H38V68H12C9.8 68 8 66.2 8 64V16Z" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
+                            <path d="M72 16C72 13.8 70.2 12 68 12H42V68H68C70.2 68 72 66.2 72 64V16Z" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
+                            <line x1="40" y1="12" x2="40" y2="68" stroke="#0d9488" stroke-width="2.5"/>
+                            <line x1="15" y1="24" x2="34" y2="24" stroke="#0d9488" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="15" y1="31" x2="34" y2="31" stroke="#0d9488" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="15" y1="38" x2="34" y2="38" stroke="#0d9488" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="15" y1="45" x2="34" y2="45" stroke="#0d9488" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="15" y1="52" x2="26" y2="52" stroke="#0d9488" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="46" y1="24" x2="65" y2="24" stroke="#0d9488" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="46" y1="31" x2="65" y2="31" stroke="#0d9488" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="46" y1="38" x2="65" y2="38" stroke="#0d9488" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="46" y1="45" x2="65" y2="45" stroke="#0d9488" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="46" y1="52" x2="57" y2="52" stroke="#0d9488" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        <p class="empty-title" data-i18n="emptyTitle">上传 EPUB / PDF / MOBI 开始转换</p>
+                        <p class="empty-desc" data-i18n="emptyDesc">选择 EPUB、MOBI 或 PDF 文件，预览后即可导出为 XTC 格式</p>
+                    </div>
+
+                    <!-- 浮动翻页按钮 -->
+                    <button type="button" class="float-nav float-prev" id="floatPrevBtn" disabled aria-label="上一页">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    <button type="button" class="float-nav float-next" id="floatNextBtn" disabled aria-label="下一页">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <!-- 全屏预览灯箱 -->
+    <div class="preview-lightbox" id="previewLightbox">
+        <img class="lightbox-img" id="lightboxImg" src="" alt="">
+    </div>
+
+    <div class="tech-modal" id="usageGuideModal" aria-hidden="true">
+        <div class="tech-modal-card tech-modal-card--wide tech-modal-card--usage" role="dialog" aria-modal="true" aria-labelledby="usageGuideTitle">
+            <div class="tech-modal-head">
+                <h3 id="usageGuideTitle" data-i18n="usageGuideTitle">使用说明</h3>
+                <button type="button" class="tech-modal-close" id="usageGuideClose" aria-label="Close">×</button>
+            </div>
+            <div class="tech-modal-body usage-guide-body">
+                <p class="tech-modal-desc" data-i18n="usageGuideIntro"></p>
+
+                <h4 class="usage-guide-h4" data-i18n="usageGuideNovelTitle"></h4>
+                <ul class="tech-modal-list">
+                    <li data-i18n="usageGuideNovel1"></li>
+                    <li data-i18n="usageGuideNovel2"></li>
+                    <li data-i18n="usageGuideNovel3"></li>
+                    <li data-i18n="usageGuideNovel4"></li>
+                </ul>
+
+                <h4 class="usage-guide-h4" data-i18n="usageGuideMixedTitle"></h4>
+                <p class="usage-guide-p" data-i18n="usageGuideMixedIntro"></p>
+                <ol class="usage-guide-ol">
+                    <li data-i18n="usageGuideMixed1"></li>
+                    <li data-i18n="usageGuideMixed2"></li>
+                    <li data-i18n="usageGuideMixed3"></li>
+                    <li data-i18n="usageGuideMixed4"></li>
+                    <li data-i18n="usageGuideMixed5"></li>
+                </ol>
+                <p class="usage-guide-summary" data-i18n="usageGuideMixedSummary"></p>
+
+                <h4 class="usage-guide-h4" data-i18n="usageGuideMangaTitle"></h4>
+                <p class="usage-guide-p" data-i18n="usageGuideMangaIntro"></p>
+                <ol class="usage-guide-ol">
+                    <li data-i18n="usageGuideManga1"></li>
+                    <li data-i18n="usageGuideManga2"></li>
+                    <li data-i18n="usageGuideManga3"></li>
+                    <li data-i18n="usageGuideManga4"></li>
+                    <li data-i18n="usageGuideManga5"></li>
+                </ol>
+                <p class="usage-guide-summary" data-i18n="usageGuideMangaSummary"></p>
+
+                <h4 class="usage-guide-h4" data-i18n="usageGuidePdfTitle"></h4>
+                <ul class="tech-modal-list">
+                    <li data-i18n="usageGuidePdf1"></li>
+                    <li data-i18n="usageGuidePdf2"></li>
+                    <li data-i18n="usageGuidePdf3"></li>
+                    <li data-i18n="usageGuidePdf4"></li>
+                </ul>
+
+                <h4 class="usage-guide-h4" data-i18n="usageGuideGrayTitle"></h4>
+                <ul class="tech-modal-list">
+                    <li data-i18n="usageGuideGray1"></li>
+                    <li data-i18n="usageGuideGray2"></li>
+                    <li data-i18n="usageGuideGray3"></li>
+                </ul>
+
+                <h4 class="usage-guide-h4" data-i18n="usageGuideProgressTitle"></h4>
+                <ul class="tech-modal-list">
+                    <li data-i18n="usageGuideProgress1"></li>
+                    <li data-i18n="usageGuideProgress2"></li>
+                </ul>
+
+                <h4 class="usage-guide-h4" data-i18n="usageGuideTipsTitle"></h4>
+                <ul class="tech-modal-list">
+                    <li data-i18n="usageGuideTips1"></li>
+                    <li data-i18n="usageGuideTips2"></li>
+                    <li data-i18n="usageGuideTips3"></li>
+                    <li data-i18n="usageGuideTips4"></li>
+                </ul>
+
+                <h4 class="usage-guide-h4" data-i18n="usageGuideTableTitle"></h4>
+                <p class="usage-guide-p usage-guide-table-intro" data-i18n="usageGuideTableIntro"></p>
+                <div class="usage-guide-table-wrap">
+                    <table class="usage-guide-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="usageGuideTableColSituation"></th>
+                                <th data-i18n="usageGuideTableColAdvice"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td data-i18n="usageGuideTableNovel"></td><td data-i18n="usageGuideTableNovelAdvice"></td></tr>
+                            <tr><td data-i18n="usageGuideTableMixed"></td><td data-i18n="usageGuideTableMixedAdvice"></td></tr>
+                            <tr><td data-i18n="usageGuideTableManga"></td><td data-i18n="usageGuideTableMangaAdvice"></td></tr>
+                            <tr><td data-i18n="usageGuideTablePdf"></td><td data-i18n="usageGuideTablePdfAdvice"></td></tr>
+                            <tr><td data-i18n="usageGuideTableBlur"></td><td data-i18n="usageGuideTableBlurAdvice"></td></tr>
+                            <tr><td data-i18n="usageGuideTableGray"></td><td data-i18n="usageGuideTableGrayAdvice"></td></tr>
+                            <tr><td data-i18n="usageGuideTableMargin"></td><td data-i18n="usageGuideTableMarginAdvice"></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tech-modal" id="techModal" aria-hidden="true">
+        <div class="tech-modal-card" role="dialog" aria-modal="true" aria-labelledby="techModalTitle">
+            <div class="tech-modal-head">
+                <h3 id="techModalTitle" data-i18n="techModalTitle">技术方案与致谢</h3>
+                <button type="button" class="tech-modal-close" id="techModalClose" aria-label="Close">×</button>
+            </div>
+            <p class="tech-modal-desc" data-i18n="techModalDesc">本页面基于浏览器端渲染与导出链路，将 EPUB、MOBI、PDF 转为 XTC/XTCH。</p>
+            <p class="tech-modal-subtitle" data-i18n="techModalTechTitle">技术方案</p>
+            <ul class="tech-modal-list">
+                <li data-i18n="techModalTech1">采用 CREngine WASM 解析 EPUB/MOBI（PDB）并分页渲染；PDF 由 PDF.js 处理。</li>
+                <li data-i18n="techModalTech2">Canvas 预览与导出共用同一渲染流程，保证所见即所得。</li>
+                <li data-i18n="techModalTech3">支持 1-bit / 2-bit 编码、抖动与状态栏合成。</li>
+            </ul>
+            <p class="tech-modal-subtitle" data-i18n="techModalThanksTitle">致谢</p>
+            <ul class="tech-modal-list">
+                <li data-i18n="techModalThanks1">感谢 CoolReader / CREngine 社区提供开源渲染能力。</li>
+                <li data-i18n="techModalThanks2">感谢 JSZip 等项目提供稳定的基础工具支持。</li>
+                <li data-i18n="techModalThanks3">本项目代码主要借鉴自：https://github.com/bigbag/epub-to-xtc-converter</li>
+                <li data-i18n="techModalThanks4">特别感谢 https://x4converter.rho.sh/（EPUB to XTC Converter, CREngine WASM）提供的参考与灵感。</li>
+        </div>
+    </div>
+
+    <div class="tech-modal" id="exportConfirmModal" aria-hidden="true">
+        <div class="tech-modal-card export-confirm-card" role="dialog" aria-modal="true" aria-labelledby="exportConfirmTitle">
+            <div class="tech-modal-head">
+                <h3 id="exportConfirmTitle" data-i18n="exportConfirmTitle">确认导出</h3>
+                <button type="button" class="tech-modal-close" id="exportConfirmClose" aria-label="Close">×</button>
+            </div>
+            <div class="export-confirm-body">
+                <div class="export-confirm-info">
+                    <p class="export-confirm-row" id="exportConfirmDevice"></p>
+                    <p class="export-confirm-row" id="exportConfirmDimensions"></p>
+                    <p class="export-confirm-row" id="exportConfirmSize"></p>
+                    <p class="export-confirm-row" id="exportConfirmCloud"></p>
+                    <p class="export-confirm-row" id="exportConfirmUsb"></p>
+                    <p class="export-confirm-recommend" id="exportConfirmRecommend"></p>
+                </div>
+                <p class="export-confirm-question" id="exportConfirmQuestion"></p>
+                <p class="export-confirm-xtcz-tip" id="exportConfirmXtczTip"></p>
+            </div>
+            <div class="export-confirm-actions">
+                <button type="button" class="btn btn-small" id="exportConfirmCancel" data-i18n="exportConfirmCancel">取消</button>
+                <button type="button" class="btn btn-primary btn-small" id="exportConfirmOk" data-i18n="exportConfirmOk">确认导出</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tech-modal" id="pageJumpModal" aria-hidden="true">
+        <div class="tech-modal-card tech-modal-card--compact" role="dialog" aria-modal="true" aria-labelledby="pageJumpModalTitle">
+            <div class="tech-modal-head">
+                <h3 id="pageJumpModalTitle" data-i18n="pageJumpTitle">跳转到页</h3>
+                <button type="button" class="tech-modal-close" id="pageJumpModalClose" aria-label="Close">×</button>
+            </div>
+            <div class="page-jump-modal-body">
+                <label for="pageJumpInput" class="page-jump-label" data-i18n="pageJumpLabel">页码</label>
+                <input type="number" id="pageJumpInput" class="page-jump-input" min="1" value="1" aria-label="Page number">
+                <span class="page-jump-of" id="pageJumpOf">/ 1</span>
+                <button type="button" id="pageJumpBtn" class="btn btn-primary" data-i18n="pageJumpGo">跳转</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 重排版 loading 遮罩 -->
+    <div class="repaginate-overlay" id="repaginateOverlay">
+        <div class="repaginate-spinner"></div>
+        <div class="repaginate-text" id="repaginateText"></div>
+    </div>
+    <!-- 文件加载 loading 遮罩：从放入文件到加载完成 -->
+    <div class="file-loading-overlay" id="fileLoadingOverlay">
+        <div class="file-loading-card">
+            <div class="file-loading-spinner"></div>
+            <div class="file-loading-text" id="fileLoadingText"></div>
+        </div>
+    </div>
+    <script src="crengine.js?v=13"></script>
+    <script src="vendor/lz4-bundle.js?v=13"></script>
+    <script src="app.i18n.js?v=13"></script>
+    <script src="app.fonts.js?v=13"></script>
+    <script src="app.pptx.js?v=13"></script>
+    <script src="app.files.js?v=13"></script>
+    <script src="app.pdf.js?v=13"></script>
+    <script src="app.export.js?v=13"></script>
+    <script src="app.dither.js?v=13"></script>
+    <script src="app.statusbar.js?v=13"></script>
+    <script src="app.encoding.js?v=13"></script>
+    <!-- <script src="app.optimizer.js?v=13"></script> 已注释 -->
+    <script src="app.js?v=13"></script>
+</body>
+</html>

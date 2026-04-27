@@ -1,0 +1,34 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude
+.claude/
+CLAUDE.md
+
+# Test files
+*.epub
+*.xtc
+*.xtch
+
+# Node modules (if any)
+node_modules/
+
+# Build output (minified bundle)
+dist/
+web/fonts/*.ttf
+web/system/fonts/*.ttf
+
+# CREngine build toolchain (large, reproducible — install via scripts)
+vendor/cmake/
+vendor/emsdk/
+vendor/crengine-wasm-build/
+crengine-master.zip
+
+# Keep vendor/crengine-master/ tracked (our modified source)

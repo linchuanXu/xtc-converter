@@ -1,0 +1,115 @@
+diff -ruN '--exclude=*.o' '--exclude=*.a' '--exclude=CMakeFiles' '--exclude=CMakeCache.txt' '--exclude=cmake_install.cmake' '--exclude=Makefile' '--exclude=.cmake' /tmp/orig/crengine-master/CMakeLists.txt vendor/crengine-master/CMakeLists.txt
+--- /tmp/orig/crengine-master/CMakeLists.txt	2026-02-14 19:19:52.000000000 +0800
++++ vendor/crengine-master/CMakeLists.txt	2026-03-03 20:21:08.459377421 +0800
+@@ -293,7 +293,8 @@
+   ADD_SUBDIRECTORY(cr3gui)
+ elseif ( ${GUI} STREQUAL FB2PROPS )
+   message("Will make LIBFB2PROPS plugin for Jinke Bookshelf")
+-  ADD_DEFINITIONS( -DLBOOK=1 -DWITH_JINKE=1 -DCR_USE_JINKE=1 -DBUILD_LITE=1 ${CRGUI_DEFS} )
++  # For wasm builds we need full rendering symbols; BUILD_LITE strips too much.
++  ADD_DEFINITIONS( -DLBOOK=1 -DWITH_JINKE=1 -DCR_USE_JINKE=1 ${CRGUI_DEFS} )
+   ADD_SUBDIRECTORY(crengine)
+   ADD_SUBDIRECTORY(fb2props)
+ elseif ( ${GUI} STREQUAL CRGUI_WIN32 )
+diff -ruN '--exclude=*.o' '--exclude=*.a' '--exclude=CMakeFiles' '--exclude=CMakeCache.txt' '--exclude=cmake_install.cmake' '--exclude=Makefile' '--exclude=.cmake' /tmp/orig/crengine-master/crengine/include/crsetup.h vendor/crengine-master/crengine/include/crsetup.h
+--- /tmp/orig/crengine-master/crengine/include/crsetup.h	2026-02-14 19:19:52.000000000 +0800
++++ vendor/crengine-master/crengine/include/crsetup.h	2026-03-03 20:22:38.628873120 +0800
+@@ -157,6 +157,21 @@
+ #define USE_ZLIB 1
+ #endif
+ 
++// WASM build profile: keep dependencies minimal and avoid hb/fontconfig stack
++// while bootstrapping an Emscripten build.
++#if defined(__EMSCRIPTEN__)
++#undef USE_HARFBUZZ
++#define USE_HARFBUZZ 0
++#undef USE_FONTCONFIG
++#define USE_FONTCONFIG 0
++#undef USE_LIBPNG
++#define USE_LIBPNG 0
++#undef USE_LIBJPEG
++#define USE_LIBJPEG 0
++#undef USE_GIF
++#define USE_GIF 0
++#endif
++
+ #ifndef GRAY_INVERSE
+ #define GRAY_INVERSE     1
+ #endif
+diff -ruN '--exclude=*.o' '--exclude=*.a' '--exclude=CMakeFiles' '--exclude=CMakeCache.txt' '--exclude=cmake_install.cmake' '--exclude=Makefile' '--exclude=.cmake' /tmp/orig/crengine-master/crengine/src/lvstring.cpp vendor/crengine-master/crengine/src/lvstring.cpp
+--- /tmp/orig/crengine-master/crengine/src/lvstring.cpp	2026-02-14 19:19:52.000000000 +0800
++++ vendor/crengine-master/crengine/src/lvstring.cpp	2026-03-03 20:19:29.451125459 +0800
+@@ -18,6 +18,7 @@
+ #include <stdio.h>
+ #include <stdarg.h>
+ #include <stddef.h>
++#include <limits.h>
+ #include <time.h>
+ #ifdef LINUX
+ #include <sys/time.h>
+diff -ruN '--exclude=*.o' '--exclude=*.a' '--exclude=CMakeFiles' '--exclude=CMakeCache.txt' '--exclude=cmake_install.cmake' '--exclude=Makefile' '--exclude=.cmake' /tmp/orig/crengine-master/crengine/src/lvtinydom.cpp vendor/crengine-master/crengine/src/lvtinydom.cpp
+--- /tmp/orig/crengine-master/crengine/src/lvtinydom.cpp	2026-02-14 19:19:52.000000000 +0800
++++ vendor/crengine-master/crengine/src/lvtinydom.cpp	2026-03-03 20:20:05.302235109 +0800
+@@ -238,7 +238,15 @@
+ #define PACK_BUF_SIZE 0x10000
+ #define UNPACK_BUF_SIZE 0x40000
+ #endif
++#if defined(__has_include)
++#if __has_include(<xxhash.h>)
+ #include <xxhash.h>
++#define CR_HAS_XXHASH 1
++#endif
++#endif
++#ifndef CR_HAS_XXHASH
++#define CR_HAS_XXHASH 0
++#endif
+ #include <lvtextfm.h>
+ #include "../include/lvdocviewprops.h"
+ 
+@@ -385,7 +393,17 @@
+ }*/
+ static lUInt32 calcHash(const lUInt8 * s, int len)
+ {
++#if CR_HAS_XXHASH
+     return XXH32(s, len, 0);
++#else
++    // Fallback for toolchains without xxhash headers.
++    lUInt32 h = 2166136261u;
++    for (int i = 0; i < len; i++) {
++        h ^= (lUInt32)s[i];
++        h *= 16777619u;
++    }
++    return h;
++#endif
+ }
+ lUInt32 calcGlobalSettingsHash(int documentId, bool already_rendered)
+ {
+diff -ruN '--exclude=*.o' '--exclude=*.a' '--exclude=CMakeFiles' '--exclude=CMakeCache.txt' '--exclude=cmake_install.cmake' '--exclude=Makefile' '--exclude=.cmake' /tmp/orig/crengine-master/thirdparty/freetype/include/freetype/config/ftoption.h vendor/crengine-master/thirdparty/freetype/include/freetype/config/ftoption.h
+--- /tmp/orig/crengine-master/thirdparty/freetype/include/freetype/config/ftoption.h	2026-02-14 19:19:52.000000000 +0800
++++ vendor/crengine-master/thirdparty/freetype/include/freetype/config/ftoption.h	2026-03-03 20:04:57.370904129 +0800
+@@ -323,7 +323,11 @@
+   /*                                                                       */
+   /*   Note that the `FOND' resource isn't checked.                        */
+   /*                                                                       */
+-#define FT_CONFIG_OPTION_MAC_FONTS
++/* Disabled for WASM/MEMFS builds: this avoids resource-fork probing
++ * (..namedfork/rsrc, .AppleDouble, %, etc.) that causes noisy FT errors
++ * and unstable behavior in virtual filesystems.
++ */
++/* #define FT_CONFIG_OPTION_MAC_FONTS */
+ 
+ 
+   /*************************************************************************/
+@@ -344,9 +348,9 @@
+   /*   Note that normal, direct access of resource forks is controlled via */
+   /*   the FT_CONFIG_OPTION_MAC_FONTS option.                              */
+   /*                                                                       */
+-#ifdef FT_CONFIG_OPTION_MAC_FONTS
+-#define FT_CONFIG_OPTION_GUESSING_EMBEDDED_RFORK
+-#endif
++/* #ifdef FT_CONFIG_OPTION_MAC_FONTS */
++/* #define FT_CONFIG_OPTION_GUESSING_EMBEDDED_RFORK */
++/* #endif */
+ 
+ 
+   /*************************************************************************/

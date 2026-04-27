@@ -1,0 +1,19 @@
+{
+  "name": "epub-to-xtc-converter",
+  "version": "1.1.0",
+  "description": "Convert EPUB files to XTC/XTCH format for Xteink e-ink readers. Browser-based web app + Node.js CLI.",
+  "keywords": ["epub", "xtc", "xtch", "ebook", "e-ink", "xteink", "converter"],
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "build:dev": "node scripts/build.js --no-minify",
+    "build:crengine": "bash scripts/build-crengine-custom.sh",
+    "build:lz4": "node scripts/build-lz4.js",
+    "dev": "node scripts/serve-dev.js"
+  },
+  "devDependencies": {
+    "browserify": "^17.0.0",
+    "lz4js": "^0.2.0",
+    "terser": "^5.36.0"
+  }
+}

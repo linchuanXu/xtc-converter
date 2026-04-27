@@ -1,0 +1,238 @@
+cmake_minimum_required(VERSION 3.15)
+project(crengine-wasm C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_C_STANDARD 11)
+
+# Root of CREngine source - can be overridden via -DCR_ROOT=...
+if(NOT DEFINED CR_ROOT)
+    set(CR_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
+set(CR_SRC  ${CR_ROOT}/crengine/src)
+set(CR_INC  ${CR_ROOT}/crengine/include)
+
+# ── zlib ────────────────────────────────────────────────────────────────
+set(ZLIB_DIR ${CR_ROOT}/thirdparty/zlib)
+add_library(zlib STATIC
+    ${ZLIB_DIR}/adler32.c
+    ${ZLIB_DIR}/compress.c
+    ${ZLIB_DIR}/crc32.c
+    ${ZLIB_DIR}/deflate.c
+    ${ZLIB_DIR}/gzio.c
+    ${ZLIB_DIR}/infback.c
+    ${ZLIB_DIR}/inffast.c
+    ${ZLIB_DIR}/inflate.c
+    ${ZLIB_DIR}/inftrees.c
+    ${ZLIB_DIR}/trees.c
+    ${ZLIB_DIR}/uncompr.c
+    ${ZLIB_DIR}/zutil.c
+)
+target_include_directories(zlib PUBLIC ${ZLIB_DIR})
+target_compile_definitions(zlib PRIVATE CR3_PATCH=1)
+
+# ── FreeType 2 (using amalgamation files, same as upstream CMakeLists) ──
+set(FT_DIR ${CR_ROOT}/thirdparty/freetype)
+add_library(freetype STATIC
+    ${FT_DIR}/src/autofit/autofit.c
+    ${FT_DIR}/src/bdf/bdf.c
+    ${FT_DIR}/src/cff/cff.c
+    ${FT_DIR}/src/base/ftbase.c
+    ${FT_DIR}/src/base/ftbbox.c
+    ${FT_DIR}/src/base/ftbdf.c
+    ${FT_DIR}/src/base/ftbitmap.c
+    ${FT_DIR}/src/base/ftgasp.c
+    ${FT_DIR}/src/cache/ftcache.c
+    ${FT_DIR}/src/base/ftglyph.c
+    ${FT_DIR}/src/base/ftgxval.c
+    ${FT_DIR}/src/gzip/ftgzip.c
+    ${FT_DIR}/src/base/ftinit.c
+    ${FT_DIR}/src/lzw/ftlzw.c
+    ${FT_DIR}/src/base/ftmm.c
+    ${FT_DIR}/src/base/ftotval.c
+    ${FT_DIR}/src/base/ftpfr.c
+    ${FT_DIR}/src/base/ftstroke.c
+    ${FT_DIR}/src/base/ftsynth.c
+    ${FT_DIR}/src/base/ftsystem.c
+    ${FT_DIR}/src/base/fttype1.c
+    ${FT_DIR}/src/base/ftwinfnt.c
+    ${FT_DIR}/src/base/ftxf86.c
+    ${FT_DIR}/src/pcf/pcf.c
+    ${FT_DIR}/src/pfr/pfr.c
+    ${FT_DIR}/src/psaux/psaux.c
+    ${FT_DIR}/src/pshinter/pshinter.c
+    ${FT_DIR}/src/psnames/psmodule.c
+    ${FT_DIR}/src/raster/raster.c
+    ${FT_DIR}/src/sfnt/sfnt.c
+    ${FT_DIR}/src/smooth/smooth.c
+    ${FT_DIR}/src/truetype/truetype.c
+    ${FT_DIR}/src/type1/type1.c
+    ${FT_DIR}/src/cid/type1cid.c
+    ${FT_DIR}/src/type42/type42.c
+    ${FT_DIR}/src/bzip2/ftbzip2.c
+    ${FT_DIR}/src/winfonts/winfnt.c
+)
+target_include_directories(freetype PUBLIC
+    ${FT_DIR}/include
+    ${FT_DIR}/include/freetype
+)
+target_compile_definitions(freetype PRIVATE
+    FT2_BUILD_LIBRARY
+)
+
+# ── libpng ───────────────────────────────────────────────────────────────
+set(PNG_DIR ${CR_ROOT}/thirdparty/libpng)
+configure_file(${PNG_DIR}/scripts/pnglibconf.h.prebuilt
+               ${CMAKE_CURRENT_BINARY_DIR}/pnglibconf.h COPYONLY)
+add_library(png STATIC
+    ${PNG_DIR}/png.c
+    ${PNG_DIR}/pngerror.c
+    ${PNG_DIR}/pngget.c
+    ${PNG_DIR}/pngmem.c
+    ${PNG_DIR}/pngpread.c
+    ${PNG_DIR}/pngread.c
+    ${PNG_DIR}/pngrio.c
+    ${PNG_DIR}/pngrtran.c
+    ${PNG_DIR}/pngrutil.c
+    ${PNG_DIR}/pngset.c
+    ${PNG_DIR}/pngtrans.c
+    ${PNG_DIR}/pngwio.c
+    ${PNG_DIR}/pngwrite.c
+    ${PNG_DIR}/pngwtran.c
+    ${PNG_DIR}/pngwutil.c
+)
+target_include_directories(png PUBLIC ${PNG_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+target_compile_definitions(png PRIVATE CR3_PATCH=1)
+target_link_libraries(png PUBLIC zlib)
+
+# ── libjpeg ──────────────────────────────────────────────────────────────
+set(JPEG_DIR ${CR_ROOT}/thirdparty/libjpeg)
+add_library(jpeg STATIC
+    ${JPEG_DIR}/jcapimin.c  ${JPEG_DIR}/jchuff.c    ${JPEG_DIR}/jcomapi.c
+    ${JPEG_DIR}/jctrans.c   ${JPEG_DIR}/jdcoefct.c  ${JPEG_DIR}/jdmainct.c
+    ${JPEG_DIR}/jdpostct.c  ${JPEG_DIR}/jfdctfst.c  ${JPEG_DIR}/jidctred.c
+    ${JPEG_DIR}/jutils.c    ${JPEG_DIR}/jcapistd.c  ${JPEG_DIR}/jcinit.c
+    ${JPEG_DIR}/jcparam.c   ${JPEG_DIR}/jdapimin.c  ${JPEG_DIR}/jdcolor.c
+    ${JPEG_DIR}/jdmarker.c  ${JPEG_DIR}/jdsample.c  ${JPEG_DIR}/jfdctint.c
+    ${JPEG_DIR}/jmemmgr.c   ${JPEG_DIR}/jccoefct.c  ${JPEG_DIR}/jcmainct.c
+    ${JPEG_DIR}/jcphuff.c   ${JPEG_DIR}/jdapistd.c  ${JPEG_DIR}/jddctmgr.c
+    ${JPEG_DIR}/jdmaster.c  ${JPEG_DIR}/jdtrans.c   ${JPEG_DIR}/jidctflt.c
+    ${JPEG_DIR}/jmemnobs.c  ${JPEG_DIR}/jccolor.c   ${JPEG_DIR}/jcmarker.c
+    ${JPEG_DIR}/jcprepct.c  ${JPEG_DIR}/jdatadst.c  ${JPEG_DIR}/jdhuff.c
+    ${JPEG_DIR}/jdmerge.c   ${JPEG_DIR}/jerror.c    ${JPEG_DIR}/jidctfst.c
+    ${JPEG_DIR}/jquant1.c   ${JPEG_DIR}/jcdctmgr.c  ${JPEG_DIR}/jcmaster.c
+    ${JPEG_DIR}/jcsample.c  ${JPEG_DIR}/jdatasrc.c  ${JPEG_DIR}/jdinput.c
+    ${JPEG_DIR}/jdphuff.c   ${JPEG_DIR}/jfdctflt.c  ${JPEG_DIR}/jidctint.c
+    ${JPEG_DIR}/jquant2.c
+)
+target_include_directories(jpeg PUBLIC ${JPEG_DIR})
+
+# ── CREngine ────────────────────────────────────────────────────────────
+set(CRENGINE_SOURCES
+    ${CR_SRC}/cp_stats.cpp
+    ${CR_SRC}/lvstring.cpp
+    ${CR_SRC}/props.cpp
+    ${CR_SRC}/lstridmap.cpp
+    ${CR_SRC}/rtfimp.cpp
+    ${CR_SRC}/cri18n.cpp
+    ${CR_SRC}/lvmemman.cpp
+    ${CR_SRC}/lvstyles.cpp
+    ${CR_SRC}/crtxtenc.cpp
+    ${CR_SRC}/lvtinydom.cpp
+    ${CR_SRC}/lvstream.cpp
+    ${CR_SRC}/lvxml.cpp
+    ${CR_SRC}/lvstsheet.cpp
+    ${CR_SRC}/txtselector.cpp
+    ${CR_SRC}/crtest.cpp
+    ${CR_SRC}/lvbmpbuf.cpp
+    ${CR_SRC}/lvfnt.cpp
+    ${CR_SRC}/hyphman.cpp
+    ${CR_SRC}/lvfntman.cpp
+    ${CR_SRC}/lvimg.cpp
+    ${CR_SRC}/lvdrawbuf.cpp
+    ${CR_SRC}/lvdocview.cpp
+    ${CR_SRC}/lvpagesplitter.cpp
+    ${CR_SRC}/lvtextfm.cpp
+    ${CR_SRC}/lvrend.cpp
+    ${CR_SRC}/wolutil.cpp
+    ${CR_SRC}/hist.cpp
+    ${CR_SRC}/epubfmt.cpp
+    ${CR_SRC}/pdbfmt.cpp
+    ${CR_SRC}/bookformats.cpp
+    ${CR_SRC}/docxfmt.cpp
+    ${CR_SRC}/fb3fmt.cpp
+    ${CR_SRC}/mdfmt.cpp
+    ${CR_SRC}/odtfmt.cpp
+    ${CR_SRC}/odxutil.cpp
+    ${CR_SRC}/mathml.cpp
+    ${CR_SRC}/textlang.cpp
+    ${CR_SRC}/s32utils.cpp
+    ${CR_SRC}/lvopc.cpp
+    ${CR_ROOT}/crengine/qimagescale/qimagescale.cpp
+)
+
+add_library(crengine STATIC ${CRENGINE_SOURCES})
+target_include_directories(crengine PUBLIC
+    ${CR_INC}
+    ${CR_ROOT}/crengine/qimagescale
+    ${FT_DIR}/include
+    ${ZLIB_DIR}
+)
+target_include_directories(crengine PUBLIC
+    ${PNG_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${JPEG_DIR}
+)
+target_compile_definitions(crengine PRIVATE
+    LINUX=1
+    _LINUX=1
+    USE_FREETYPE=1
+    USE_ZLIB=1
+    USE_LIBPNG=1
+    USE_LIBJPEG=1
+    LDOM_USE_OWN_MEM_MAN=0
+    COLOR_BACKBUFFER=0
+    USE_DOM_UTF8_STORAGE=1
+    CR3_PATCH=1
+)
+target_link_libraries(crengine PUBLIC freetype zlib png jpeg)
+
+# ── WASM binding (final executable) ────────────────────────────────────
+add_executable(crengine_wasm ${CR_ROOT}/wasm_binding.cpp ${CR_ROOT}/wasm_stubs.cpp)
+target_include_directories(crengine_wasm PRIVATE ${CR_INC} ${FT_DIR}/include ${ZLIB_DIR})
+target_compile_definitions(crengine_wasm PRIVATE
+    LINUX=1
+    _LINUX=1
+    USE_FREETYPE=1
+    USE_ZLIB=1
+    USE_LIBPNG=1
+    USE_LIBJPEG=1
+    LDOM_USE_OWN_MEM_MAN=0
+    COLOR_BACKBUFFER=0
+    USE_DOM_UTF8_STORAGE=1
+)
+target_link_libraries(crengine_wasm PRIVATE crengine freetype zlib png jpeg)
+
+set_target_properties(crengine_wasm PROPERTIES
+    OUTPUT_NAME "crengine"
+    SUFFIX ".js"
+)
+
+# Emscripten link flags
+target_link_options(crengine_wasm PRIVATE
+    "SHELL:-s MODULARIZE=1"
+    "SHELL:-s EXPORT_NAME='CREngine'"
+    "SHELL:-s ALLOW_MEMORY_GROWTH=1"
+    "SHELL:-s INITIAL_MEMORY=67108864"
+    "SHELL:-s MAXIMUM_MEMORY=2147483648"
+    "SHELL:-s FORCE_FILESYSTEM=1"
+    "SHELL:-s EXPORTED_RUNTIME_METHODS=['FS','HEAPU8']"
+    "SHELL:--bind"
+    "SHELL:-s WASM=1"
+    "SHELL:-s ENVIRONMENT='web'"
+    "SHELL:-s EXPORT_ES6=0"
+    "SHELL:-s NO_EXIT_RUNTIME=1"
+    "SHELL:-s ASSERTIONS=1"
+    "SHELL:-s ALLOW_TABLE_GROWTH=1"
+    "SHELL:-s EMULATE_FUNCTION_POINTER_CASTS=1"
+    -O2
+)
